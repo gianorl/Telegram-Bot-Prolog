@@ -49,7 +49,8 @@ Mode since 25 Oct 2026: **build first, learn by reverse engineering.** I need th
 ## Current status (R2.5)
 R1 done (v0.1.0). R2 + R2.5 code written 26 Oct 2026: accounts, `/masuk`, `/pindah`, pay cycles from the 27th, `/bulan`, `/budget`, `/riwayat` (edit/delete any entry), `/sesuaikan`, `/hutang`, `/langganan` with reminders. Switched to PostgreSQL 26 Oct 2026 (fresh schema; `schema_version` 2 = categories table). Backups of the old SQLite file in `backups/`.
 Decided: track every place money sits (banks, e-wallets, cash); no transfer fees; R3 = native Android app.
-Next: I add real accounts and run `docs/MANUAL_TEST.md` (R2 + R2.5). Then R3: API, Android app (Kotlin + Compose), deploy.
+Deployed 26 Oct 2026 to a Tencent Lighthouse VPS (Jakarta), see `docs/SERVER.md`. **The server DB is the real data; never run the bot on the Mac again** (two polling bots fight). Deploy with `./scripts/deploy.sh`.
+Next: nightly backups, DBeaver over SSH tunnel, run `docs/MANUAL_TEST.md`. Then R3: API, Android app (Kotlin + Compose).
 
 ## Later modules (planned)
 - Reading log: book + page + exact quote (typed, photo, or voice) + my own one line; daily review note (spaced repetition). No AI summaries.

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Copies the VPS database backups to this Mac every day at 09:00
+     (or when the Mac wakes up, if it was asleep): the second copy, in a
+     different place. Install and remove: see docs/SERVER.md, "Backups". -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.prolog.pull-backups</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/rsync</string>
+    <string>-a</string>
+    <string>-e</string>
+    <string>/usr/bin/ssh -o BatchMode=yes -o ConnectTimeout=20</string>
+    <string>prolog:/var/backups/prolog/</string>
+    <string>/Users/fshihab/Backups/prolog-vps/</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>/Users/fshihab/Backups/prolog-vps.log</string>
+  <key>StandardErrorPath</key><string>/Users/fshihab/Backups/prolog-vps.log</string>
+</dict>
+</plist>

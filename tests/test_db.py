@@ -275,6 +275,14 @@ def test_debts_both_directions():
     assert db.sum_by_kind("expense", *CYCLE) == 0  # debts are not spending
 
 
+def test_past_debt_without_account_keeps_balances():
+    db.add_account("CIMB", 500_000, NOW)
+    andi = db.find_or_add_person("Andi")
+    db.add_transaction("lend", "x", 100_000, NOW, person_id=andi)  # no account
+    assert db.debt_with(andi) == 100_000
+    assert db.balance_of(account_id("CIMB")) == 500_000
+
+
 def test_settled_debt_disappears_from_list():
     db.add_account("CIMB", 0, NOW)
     cimb = account_id("CIMB")

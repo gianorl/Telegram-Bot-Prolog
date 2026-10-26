@@ -19,6 +19,11 @@ def budget_line(category, spent, limit):
     )
 
 
+def _via(account, word):
+    """ "(dari CIMB)", or "(tanpa akun)" for a debt recorded from the past."""
+    return f"({word} {account})" if account else "(tanpa akun)"
+
+
 def describe_transaction(t):
     """One line for any kind of transaction row (from db.get_transaction)."""
     kind, amount = t["kind"], rupiah(t["amount"])
@@ -31,13 +36,15 @@ def describe_transaction(t):
             return f"Penyesuaian {t['to_account']} +{amount}"
         return f"Penyesuaian {t['from_account']} -{amount}"
     if kind == "lend":
-        return f"Pinjamkan ke {t['person']} {amount} (dari {t['from_account']})"
+        return f"Pinjamkan ke {t['person']} {amount} {_via(t['from_account'], 'dari')}"
     if kind == "collect":
-        return f"{t['person']} bayar ke kamu {amount} (ke {t['to_account']})"
+        return f"{t['person']} bayar ke kamu {amount} {_via(t['to_account'], 'ke')}"
     if kind == "borrow":
-        return f"Pinjam dari {t['person']} {amount} (ke {t['to_account']})"
+        return f"Pinjam dari {t['person']} {amount} {_via(t['to_account'], 'ke')}"
     if kind == "repay":
-        return f"Bayar hutang ke {t['person']} {amount} (dari {t['from_account']})"
+        return (
+            f"Bayar hutang ke {t['person']} {amount} {_via(t['from_account'], 'dari')}"
+        )
     where = ", ".join(x for x in (t["category"], t["from_account"]) if x)
     return f"{t['item']} ({where}) {amount}"
 

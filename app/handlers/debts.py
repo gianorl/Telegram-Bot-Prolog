@@ -6,6 +6,9 @@
     repay    I pay them back             money leaves my account   I owe less
 
 None of these count as spending or income.
+
+"Sudah terjadi (tanpa akun)": for debts from the past. The money moved long
+ago and the account balances already include it, so no account is touched.
 """
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -35,6 +38,7 @@ from app.validators import parse_amount, validate_person_name
 
 KIND_PREFIX = "debt:"  # debt:lend
 PERSON_PREFIX = "person:"  # person:4
+NO_ACCOUNT = ACCOUNT_PREFIX + "none"  # past debt: no account changes
 
 # kind: (button label, account question, does money leave my account?)
 KINDS = {
@@ -136,11 +140,19 @@ async def debt_person_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await ask_account(update, context)
 
 
+def debt_account_keyboard():
+    """The usual account buttons, plus one for debts from the past."""
+    past = InlineKeyboardButton(
+        "📜 Sudah terjadi (tanpa akun)", callback_data=NO_ACCOUNT
+    )
+    return InlineKeyboardMarkup(account_keyboard().inline_keyboard + ((past,),))
+
+
 async def ask_account(update, context):
     question = KINDS[context.user_data["kind"]][1]
     person = context.user_data["person"]["name"]
     await update.effective_message.reply_text(
-        f"{person} · {question}", reply_markup=account_keyboard()
+        f"{person} · {question}", reply_markup=debt_account_keyboard()
     )
     return "debt_account"
 
@@ -148,14 +160,19 @@ async def ask_account(update, context):
 async def debt_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    account = picked_account(query)
-    if account is None:
-        await reply_error(update, "Akun tidak valid.", account_keyboard())
-        return "debt_account"
+    if query.data == NO_ACCOUNT:
+        context.user_data["account"] = None
+        where = "tanpa akun (saldo tidak berubah)"
+    else:
+        account = picked_account(query)
+        if account is None:
+            await reply_error(update, "Akun tidak valid.", debt_account_keyboard())
+            return "debt_account"
+        context.user_data["account"] = dict(account)
+        where = account["name"]
 
-    context.user_data["account"] = dict(account)
     person = context.user_data["person"]
-    text = f"{person['name']} · {account['name']}\nBerapa?"
+    text = f"{person['name']} · {where}\nBerapa?"
     if person["id"] and context.user_data["kind"] in ("collect", "repay"):
         text += f" (sisa {rupiah(abs(db.debt_with(person['id'])))})"
     await query.edit_message_text(text)
@@ -177,13 +194,14 @@ async def debt_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     person_id = person["id"] or db.find_or_add_person(person["name"])
     leaves_my_account = KINDS[kind][2]
+    account_id = account["id"] if account else None  # None: past debt
     db.add_transaction(
         kind,
         f"{KINDS[kind][0]}: {person['name']}",
         amount,
         data["sent_at"].isoformat(),
-        from_account_id=account["id"] if leaves_my_account else None,
-        to_account_id=None if leaves_my_account else account["id"],
+        from_account_id=account_id if leaves_my_account else None,
+        to_account_id=None if leaves_my_account else account_id,
         person_id=person_id,
     )
     context.user_data.clear()
@@ -192,10 +210,12 @@ async def debt_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status = (
         debt_line(person["name"], owed) if owed else f"Lunas dengan {person['name']} 🎉"
     )
-    direction = "dari" if leaves_my_account else "ke"
+    if account:
+        where = f"{'dari' if leaves_my_account else 'ke'} {account['name']}"
+    else:
+        where = "tanpa akun, saldo tidak berubah"
     await update.message.reply_text(
-        f"✅ {KINDS[kind][0]}: {person['name']} {rupiah(amount)} "
-        f"({direction} {account['name']})\n{status}"
+        f"✅ {KINDS[kind][0]}: {person['name']} {rupiah(amount)} ({where})\n{status}"
     )
     return ConversationHandler.END
 

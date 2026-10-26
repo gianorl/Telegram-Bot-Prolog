@@ -76,6 +76,8 @@ def test_describe_transaction():
             row(kind="repay", person="Budi", from_account="CIMB"),
             "Bayar hutang ke Budi Rp25.000 (dari CIMB)",
         ),
+        (row(kind="lend", person="Andi"), "Pinjamkan ke Andi Rp25.000 (tanpa akun)"),
+        (row(kind="borrow", person="Budi"), "Pinjam dari Budi Rp25.000 (tanpa akun)"),
     ]
     for t, expected in cases:
         assert describe_transaction(t) == expected

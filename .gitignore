@@ -1,2 +1,7 @@
 .env
 venv/
+prolog.db
+__pycache__/
+.ruff_cache/
+.pytest_cache/
+backups/

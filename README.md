@@ -16,6 +16,7 @@ transfers, budgets, and a report per pay cycle (payday to payday).
 | `/bulan` | This pay cycle: in, out, per category, budgets, vs last cycle (◀ ▶ to browse) |
 | `/budget` | `/budget Makan 1500000` to set, `/budget Makan 0` to remove, `/budget` to see bars |
 | `/riwayat` | Browse every entry; tap one to edit or delete it |
+| `/ekspor` | Download current balances + every transaction as a CSV file (Excel, Google Sheets) |
 | `/hutang` | Who owes whom: lend, get paid back, borrow, pay back |
 | `/langganan` | Recurring payments (Netflix, kos, cicilan): reminder on the due day, one tap to log |
 | `/sesuaikan` | Real app shows a different balance? Type the real one, the difference is recorded |

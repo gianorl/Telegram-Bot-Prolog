@@ -3,6 +3,8 @@
 ## v0.2.0 (R2: Real tracker), unreleased
 
 ### Added
+- `/ekspor`: download current balances and all transactions as a CSV file, safe against formula injection
+- `/hutang`: "Sudah terjadi (tanpa akun)" records past debts without changing any balance
 - Accounts: `/akun` adds a bank, e-wallet, or cash with its current balance; `/saldo` shows every balance
 - `/masuk` for income and `/pindah` for transfers between accounts (not counted as spending)
 - `/catat` asks which account paid; most recently used account comes first

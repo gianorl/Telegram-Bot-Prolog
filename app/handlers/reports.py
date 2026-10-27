@@ -1,13 +1,14 @@
-"""One-step commands: /saldo, /bulan, /budget, /hapus."""
+"""One-step commands: /saldo, /bulan, /budget, /hapus, /ekspor."""
 
 from datetime import date, datetime
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
 from app import db
 from app.config import PAYDAY_DAY, TZ
 from app.cycles import cycle_for, cycle_label, next_cycle, previous_cycle
+from app.export import export_csv
 from app.formatters import budget_line, describe_transaction, rupiah
 from app.validators import MAX_AMOUNT, parse_amount
 
@@ -217,8 +218,30 @@ async def hapus_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(f"🗑️ Dihapus: {describe_transaction(last)}")
 
 
+# ---------- /ekspor: all transactions as a spreadsheet file ----------
+
+
+async def ekspor(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    balances, rows = db.balances(), db.all_transactions()
+    if not balances:
+        await update.message.reply_text(
+            "📜 Belum ada akun atau catatan untuk diekspor."
+        )
+        return
+    filename = f"prolog-{today():%Y-%m-%d}.csv"
+    total = sum(b["balance"] for b in balances)
+    await update.message.reply_document(
+        InputFile(export_csv(balances, rows, TZ, datetime.now(TZ)), filename=filename),
+        caption=(
+            f"📊 Saldo {len(balances)} akun (total {rupiah(total)}) "
+            f"+ {len(rows)} transaksi.\nBuka di Excel atau Google Sheets."
+        ),
+    )
+
+
 def register(app):
     app.add_handler(CommandHandler("saldo", saldo))
+    app.add_handler(CommandHandler("ekspor", ekspor))
     app.add_handler(CommandHandler(["bulan", "total"], bulan))
     app.add_handler(CallbackQueryHandler(bulan_button, pattern=f"^{BULAN_PREFIX}"))
     app.add_handler(CommandHandler("budget", budget))

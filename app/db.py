@@ -338,6 +338,11 @@ def last_transaction():
     return _one(_SELECT_TRANSACTION + " ORDER BY t.id DESC LIMIT 1")
 
 
+def all_transactions():
+    """Everything, oldest first (for /ekspor)."""
+    return _all(_SELECT_TRANSACTION + " ORDER BY t.created_at, t.id")
+
+
 def recent_transactions(offset, limit):
     """Newest first. Asks for one extra row to know if there's a next page."""
     return _all(

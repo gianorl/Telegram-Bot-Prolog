@@ -13,6 +13,7 @@ COMMANDS = [
     ("saldo", "Saldo semua akun"),
     ("bulan", "Ringkasan siklus gajian ini"),
     ("riwayat", "Lihat, ubah, atau hapus catatan"),
+    ("ekspor", "Unduh saldo + semua transaksi (CSV untuk Excel/Sheets)"),
     ("budget", "Lihat atau atur budget per kategori"),
     ("hutang", "Hutang & piutang"),
     ("langganan", "Langganan & tagihan rutin"),

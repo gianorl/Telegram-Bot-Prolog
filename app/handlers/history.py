@@ -3,7 +3,7 @@
 /riwayat ──► list (8 per page, newest first, ◀ ▶)
                │ tap an entry
                ▼
-             detail ──► Ubah nama / jumlah   (asks for text: conversation)
+             detail ──► Ubah nama / jumlah / tanggal (asks for text: conversation)
                     ──► Ubah kategori / akun (buttons only)
                     ──► Hapus ──► confirm
 """
@@ -23,30 +23,42 @@ from app import db
 from app.config import TZ
 from app.cycles import MONTHS
 from app.formatters import describe_transaction, history_label
-from app.handlers.shared import TEXT, reply_error, start_flow, two_per_row
-from app.validators import parse_amount, validate_item
+from app.handlers.shared import (
+    TEXT,
+    now,
+    reply_error,
+    start_flow,
+    three_per_row,
+    two_per_row,
+)
+from app.validators import parse_amount, parse_when, validate_item
 
 PAGE_SIZE = 8
 
-# What can be changed, per kind. Debts and transfers: only the amount.
+# What can be changed, per kind. Debts and transfers: only amount and date.
 EDITS = {
-    "expense": ["item", "amount", "category", "account"],
-    "income": ["item", "amount", "account"],
-    "transfer": ["amount"],
-    "lend": ["amount"],
-    "collect": ["amount"],
-    "borrow": ["amount"],
-    "repay": ["amount"],
-    "adjustment": [],
+    "expense": ["item", "amount", "category", "account", "date"],
+    "income": ["item", "amount", "account", "date"],
+    "refund": ["item", "amount", "category", "account", "date"],
+    "transfer": ["amount", "date"],
+    "lend": ["amount", "date"],
+    "collect": ["amount", "date"],
+    "borrow": ["amount", "date"],
+    "repay": ["amount", "date"],
+    "adjustment": ["date"],
 }
 # Spending leaves FROM an account, income goes TO one
-ACCOUNT_FIELD = {"expense": "from_account_id", "income": "to_account_id"}
+ACCOUNT_FIELD = {
+    "expense": "from_account_id",
+    "income": "to_account_id",
+    "refund": "to_account_id",
+}
 
 # Button data patterns. All untrusted: the regex checks the shape, the
 # handler checks that the entry exists and the edit is allowed for its kind.
 PAGE = re.compile(r"^riwayat:(\d{1,6})$")
 OPEN = re.compile(r"^tx:(\d+)$")
-EDIT_TEXT = re.compile(r"^edit:(item|amount):(\d+)$")
+EDIT_TEXT = re.compile(r"^edit:(item|amount|date):(\d+)$")
 PICK_CATEGORY = re.compile(r"^editcat:(\d+)$")
 SET_CATEGORY = re.compile(r"^setcat:(\d+):(\d+)$")
 PICK_ACCOUNT = re.compile(r"^editacc:(\d+)$")
@@ -117,6 +129,7 @@ def detail(t):
         "amount": ("✏️ Jumlah", f"edit:amount:{t['id']}"),
         "category": ("🏷 Kategori", f"editcat:{t['id']}"),
         "account": ("💳 Akun", f"editacc:{t['id']}"),
+        "date": ("📅 Tanggal", f"edit:date:{t['id']}"),
     }
     buttons = [
         InlineKeyboardButton(label, callback_data=data)
@@ -155,7 +168,7 @@ async def pick_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     transaction_id = int(PICK_CATEGORY.match(query.data).group(1))
     if not allowed(db.get_transaction(transaction_id), "category"):
         return
-    keyboard = two_per_row(
+    keyboard = three_per_row(
         [
             InlineKeyboardButton(
                 c["name"], callback_data=f"setcat:{transaction_id}:{c['id']}"
@@ -247,7 +260,13 @@ async def delete_yes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ---------- edit with text: name, amount (needs the conversation) ----------
+# ---------- edit with text: name, amount, date (needs the conversation) ----------
+
+QUESTIONS = {
+    "item": "Nama baru?",
+    "amount": "Jumlah baru?",
+    "date": "Kapan terjadinya? Contoh: 4/11 atau 4/11 19:30",
+}
 
 
 async def start_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -261,7 +280,7 @@ async def start_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     start_flow(update, context)
     context.user_data["edit"] = (transaction_id, field)
-    question = "Nama baru?" if field == "item" else "Jumlah baru?"
+    question = QUESTIONS[field]
     await query.edit_message_text(f"{describe_transaction(t)}\n\n{question}")
     return "edit_text"
 
@@ -271,8 +290,10 @@ async def edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if field == "item":
             value = validate_item(update.message.text)
-        else:
+        elif field == "amount":
             value = parse_amount(update.message.text)
+        else:
+            value = parse_when(update.message.text, now())
     except ValueError as error:
         await reply_error(update, error)
         return "edit_text"
@@ -281,7 +302,8 @@ async def edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if db.get_transaction(transaction_id) is None:
         await update.message.reply_text("Catatan ini sudah tidak ada.")
         return ConversationHandler.END
-    db.update_transaction(transaction_id, field, value)
+    column = "created_at" if field == "date" else field
+    db.update_transaction(transaction_id, column, value)
     text, keyboard = detail(db.get_transaction(transaction_id))
     await update.message.reply_text("✅ Diubah\n" + text, reply_markup=keyboard)
     return ConversationHandler.END

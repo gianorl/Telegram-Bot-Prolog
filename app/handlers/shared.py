@@ -38,8 +38,13 @@ def two_per_row(buttons):
     return InlineKeyboardMarkup([buttons[i : i + 2] for i in range(0, len(buttons), 2)])
 
 
+def three_per_row(buttons):
+    """12 categories: 4 rows of 3 instead of 6 rows of 2."""
+    return InlineKeyboardMarkup([buttons[i : i + 3] for i in range(0, len(buttons), 3)])
+
+
 def category_keyboard(prefix=CATEGORY_PREFIX):
-    return two_per_row(
+    return three_per_row(
         [
             InlineKeyboardButton(c["name"], callback_data=f"{prefix}{c['id']}")
             for c in db.categories()
@@ -53,6 +58,20 @@ def account_keyboard(prefix=ACCOUNT_PREFIX, exclude_id=None):
             InlineKeyboardButton(a["name"], callback_data=f"{prefix}{a['id']}")
             for a in db.accounts()
             if a["id"] != exclude_id
+        ]
+    )
+
+
+def date_button(transaction_id):
+    """Shown under a just-saved entry, for things logged a day (or more) late.
+    Same button data as in /riwayat, so the same handler takes it."""
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "📅 Ubah tanggal", callback_data=f"edit:date:{transaction_id}"
+                )
+            ]
         ]
     )
 

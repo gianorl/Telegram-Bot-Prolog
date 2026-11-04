@@ -1,11 +1,11 @@
-"""Flows: /catat (spending), /masuk (income), /pindah (transfer),
+"""Flows: /catat (spending), /masuk (income or pay-back), /pindah (transfer),
 /akun (add account), /sesuaikan (fix a balance that drifted).
 
 Each module exports ENTRY_POINTS and STATES; handlers/flows.py puts them all
 into ONE ConversationHandler.
 """
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     CommandHandler,
     ContextTypes,
@@ -23,6 +23,7 @@ from app.handlers.shared import (
     button,
     category_keyboard,
     cycle_bounds,
+    date_button,
     no_accounts,
     picked_account,
     picked_category,
@@ -40,6 +41,7 @@ from app.validators import (
 FROM_PREFIX = "from:"
 TO_PREFIX = "to:"
 ADJUST_PREFIX = "adj:"
+MASUK_PREFIX = "masuk:"  # masuk:income or masuk:refund
 
 
 # ---------- /catat: spending ----------
@@ -106,7 +108,7 @@ async def catat_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data
     item, category, account = data["item"], data["category"], data["account"]
     sent_at = data["sent_at"]
-    db.add_transaction(
+    transaction_id = db.add_transaction(
         "expense",
         item,
         amount,
@@ -124,18 +126,73 @@ async def catat_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply += "\n\n" + budget_line(category["name"], spent, limit)
 
     context.user_data.clear()
-    await update.message.reply_text(reply)
+    await update.message.reply_text(reply, reply_markup=date_button(transaction_id))
     return ConversationHandler.END
 
 
-# ---------- /masuk: income ----------
+# ---------- /masuk: income, or a pay-back (refund) ----------
+#
+#   /masuk ─► 💰 Pemasukan ─────────────────────► apa? ─► akun ─► berapa
+#         └─► ↩️ Pengembalian ─► kategori ─────┘
+#
+# Pemasukan: real new money (gaji, bonus, bunga).
+# Pengembalian: someone pays me back, so it lowers that category's spending.
+
+MASUK_KINDS = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton(
+                "💰 Pemasukan (gaji, bonus, bunga)", callback_data="masuk:income"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "↩️ Pengembalian (teman bayar balik)", callback_data="masuk:refund"
+            )
+        ],
+    ]
+)
 
 
 async def start_masuk(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not db.accounts():
         return await no_accounts(update)
     start_flow(update, context)
-    await update.message.reply_text("Pemasukan apa? (contoh: Gaji Oktober)")
+    await update.message.reply_text("Uang masuk jenis apa?", reply_markup=MASUK_KINDS)
+    return "masuk_kind"
+
+
+async def masuk_kind(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    kind = query.data.removeprefix(MASUK_PREFIX)
+    if kind not in ("income", "refund"):  # button data is untrusted
+        await reply_error(update, "Pilihan tidak valid.", MASUK_KINDS)
+        return "masuk_kind"
+
+    context.user_data["kind"] = kind
+    if kind == "income":
+        await query.edit_message_text("Pemasukan apa? (contoh: Gaji Oktober)")
+        return "masuk_item"
+    await query.edit_message_text(
+        "Pengembalian untuk kategori apa?", reply_markup=category_keyboard()
+    )
+    return "masuk_category"
+
+
+async def masuk_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    category = picked_category(query)
+    if category is None:
+        await reply_error(update, "Kategori tidak valid.", category_keyboard())
+        return "masuk_category"
+
+    context.user_data["category"] = dict(category)
+    await query.edit_message_text(
+        f"Pengembalian · {category['name']}\n"
+        "Dari siapa, untuk apa? (contoh: Diva bayar pocha)"
+    )
     return "masuk_item"
 
 
@@ -172,15 +229,27 @@ async def masuk_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return "masuk_amount"
 
     data = context.user_data
-    item, account = data["item"], data["account"]
-    db.add_transaction(
-        "income", item, amount, data["sent_at"].isoformat(), to_account_id=account["id"]
+    kind, item, account = data["kind"], data["item"], data["account"]
+    category = data.get("category")  # only for a refund
+    transaction_id = db.add_transaction(
+        kind,
+        item,
+        amount,
+        data["sent_at"].isoformat(),
+        category_id=category["id"] if category else None,
+        to_account_id=account["id"],
     )
+    if kind == "refund":
+        reply = (
+            f"✅ Pengembalian: {item} ({category['name']}) → {account['name']} "
+            f"{rupiah(amount)}\nMengurangi pengeluaran {category['name']}, "
+            "bukan pemasukan."
+        )
+    else:
+        reply = f"✅ Masuk: {item} → {account['name']} {rupiah(amount)}"
     # Read everything BEFORE clear(): `data` is the same dict, so it empties too
     context.user_data.clear()
-    await update.message.reply_text(
-        f"✅ Masuk: {item} → {account['name']} {rupiah(amount)}"
-    )
+    await update.message.reply_text(reply, reply_markup=date_button(transaction_id))
     return ConversationHandler.END
 
 
@@ -386,6 +455,14 @@ STATES = {
         MessageHandler(TEXT, tap_a_button),
     ],
     "catat_amount": [MessageHandler(TEXT, catat_amount)],
+    "masuk_kind": [
+        button(masuk_kind, MASUK_PREFIX),
+        MessageHandler(TEXT, tap_a_button),
+    ],
+    "masuk_category": [
+        button(masuk_category, CATEGORY_PREFIX),
+        MessageHandler(TEXT, tap_a_button),
+    ],
     "masuk_item": [MessageHandler(TEXT, masuk_item)],
     "masuk_account": [
         button(masuk_account, ACCOUNT_PREFIX),

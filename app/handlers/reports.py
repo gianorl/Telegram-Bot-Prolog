@@ -46,15 +46,18 @@ async def saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def cycle_report(start, end):
     start_iso, end_iso = iso(start), iso(end)
     income = db.sum_by_kind("income", start_iso, end_iso)
-    spending = db.sum_by_kind("expense", start_iso, end_iso)
+    spending = db.spending(start_iso, end_iso)  # already minus pay-backs
+    paid_back = db.sum_by_kind("refund", start_iso, end_iso)
     difference = income - spending
 
     lines = [
         f"📅 {cycle_label(start, end)}",
         f"Masuk: {rupiah(income)}",
         f"Keluar: {rupiah(spending)}",
-        f"Selisih: {'+' if difference > 0 else ''}{rupiah(difference)}",
     ]
+    if paid_back:
+        lines.append(f"   (sudah dikurangi pengembalian {rupiah(paid_back)})")
+    lines.append(f"Selisih: {'+' if difference > 0 else ''}{rupiah(difference)}")
 
     rows = db.spending_by_category(start_iso, end_iso)
     if rows:
@@ -69,7 +72,7 @@ def cycle_report(start, end):
             lines.append(budget_line(b["category"], spent, b["amount"]))
 
     prev_start, prev_end = previous_cycle(start, PAYDAY_DAY)
-    prev_spending = db.sum_by_kind("expense", iso(prev_start), iso(prev_end))
+    prev_spending = db.spending(iso(prev_start), iso(prev_end))
     if prev_spending:
         change = round(100 * (spending - prev_spending) / prev_spending)
         word = "naik" if change > 0 else "turun"

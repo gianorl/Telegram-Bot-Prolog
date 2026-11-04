@@ -147,9 +147,42 @@ def _categories_table(c):
     c.execute("ALTER TABLE budgets ADD PRIMARY KEY (category_id)")
 
 
+MORE_CATEGORIES = ["Keluarga", "Langganan", "Kesehatan", "Peliharaan", "Date", "Sosial"]
+
+
+def _more_categories(c):
+    """Six more categories, so less spending ends up in "Lainnya"."""
+    for name in MORE_CATEGORIES:
+        # DO NOTHING: skip a name that already exists (e.g. made by migration 2)
+        c.execute(
+            "INSERT INTO categories (name) VALUES (%s) ON CONFLICT DO NOTHING", (name,)
+        )
+
+
+def _refund_kind(c):
+    """New kind "refund" (Pengembalian): someone pays me back for something.
+
+    Diva sends 250.000 for a 287.595 date -> I really spent 37.595.
+    It goes INTO an account (like income) but counts as MINUS spending in its
+    category, so it needs a category, just like an expense.
+    """
+    c.execute("ALTER TABLE transactions DROP CONSTRAINT transactions_kind_check")
+    c.execute("""
+        ALTER TABLE transactions ADD CONSTRAINT transactions_kind_check
+        CHECK (kind IN (
+            'expense', 'income', 'transfer', 'adjustment',
+            'lend', 'collect', 'borrow', 'repay', 'refund'
+        ))
+    """)
+    c.execute("""
+        ALTER TABLE transactions ADD CONSTRAINT refund_has_category
+        CHECK (kind <> 'refund' OR category_id IS NOT NULL)
+    """)
+
+
 # Append new migrations at the end. Never reorder or edit old ones:
 # position 1 = version 1, position 2 = version 2, ...
-MIGRATIONS = [_initial_schema, _categories_table]
+MIGRATIONS = [_initial_schema, _categories_table, _more_categories, _refund_kind]
 
 
 def migrate(conn):
@@ -214,7 +247,11 @@ def _run(sql, params=()):
 
 
 def categories():
-    return _all("SELECT id, name FROM categories ORDER BY id")
+    # Oldest first, but the catch-all "Lainnya" always last.
+    # (false sorts before true, so every other name comes first)
+    return _all(
+        "SELECT id, name FROM categories ORDER BY lower(name) = 'lainnya', id"
+    )
 
 
 def get_category(category_id):
@@ -297,11 +334,13 @@ def add_transaction(
     to_account_id=None,
     person_id=None,
 ):
-    _run(
+    """Saves one entry and returns its new id."""
+    row = _one(
         """
         INSERT INTO transactions (kind, item, amount, category_id,
             from_account_id, to_account_id, person_id, created_at)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
         """,
         (
             kind,
@@ -314,6 +353,7 @@ def add_transaction(
             created_at,
         ),
     )
+    return row["id"]
 
 
 # Every read of a transaction joins in the account and person names
@@ -359,6 +399,7 @@ _UPDATE_SQL = {
     "category_id": "UPDATE transactions SET category_id = %s WHERE id = %s",
     "from_account_id": "UPDATE transactions SET from_account_id = %s WHERE id = %s",
     "to_account_id": "UPDATE transactions SET to_account_id = %s WHERE id = %s",
+    "created_at": "UPDATE transactions SET created_at = %s WHERE id = %s",
 }
 
 
@@ -384,26 +425,40 @@ def sum_by_kind(kind, start, end):
     return row["total"]
 
 
+# What I REALLY spent: expenses minus pay-backs (refund) in the same category.
+#   expense 287.595 (pocha) + refund 250.000 (Diva) -> 37.595
+# A fixed piece of SQL (no values in it), so joining it into a query is safe.
+_NET = "CASE WHEN t.kind = 'refund' THEN -t.amount ELSE t.amount END"
+
+
+def spending(start, end):
+    """Total spending in a period, after pay-backs."""
+    row = _one(
+        "SELECT COALESCE(SUM(" + _NET + "), 0) AS total FROM transactions t"
+        " WHERE t.kind IN ('expense', 'refund')"
+        " AND t.created_at >= %s AND t.created_at < %s",
+        (start, end),
+    )
+    return row["total"]
+
+
 def spending_by_category(start, end):
     return _all(
-        """
-        SELECT c.name AS category, SUM(t.amount) AS amount
-        FROM transactions t JOIN categories c ON c.id = t.category_id
-        WHERE t.kind = 'expense' AND t.created_at >= %s AND t.created_at < %s
-        GROUP BY c.id, c.name
-        ORDER BY amount DESC
-        """,
+        "SELECT c.name AS category, SUM(" + _NET + ") AS amount"
+        " FROM transactions t JOIN categories c ON c.id = t.category_id"
+        " WHERE t.kind IN ('expense', 'refund')"
+        " AND t.created_at >= %s AND t.created_at < %s"
+        " GROUP BY c.id, c.name"
+        " ORDER BY amount DESC",
         (start, end),
     )
 
 
 def spent_in_category(category_id, start, end):
     row = _one(
-        """
-        SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
-        WHERE kind = 'expense' AND category_id = %s
-          AND created_at >= %s AND created_at < %s
-        """,
+        "SELECT COALESCE(SUM(" + _NET + "), 0) AS total FROM transactions t"
+        " WHERE t.kind IN ('expense', 'refund') AND t.category_id = %s"
+        " AND t.created_at >= %s AND t.created_at < %s",
         (category_id, start, end),
     )
     return row["total"]

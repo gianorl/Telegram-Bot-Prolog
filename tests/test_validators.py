@@ -1,6 +1,10 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import pytest
 
 from app.validators import (
+    parse_when,
     parse_amount,
     parse_day,
     validate_account_name,
@@ -76,3 +80,36 @@ def test_person_name():
     assert validate_person_name(" Andi ") == "Andi"
     with pytest.raises(ValueError):
         validate_person_name("  ")
+
+
+# ---------- parse_when: "when did it really happen?" ----------
+
+JKT = ZoneInfo("Asia/Jakarta")
+NOW = datetime(2026, 11, 5, 9, 30, tzinfo=JKT)  # Thursday morning
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("4/11", datetime(2026, 11, 4, 12, 0, tzinfo=JKT)),  # no time: midday
+        ("4/11 20:00", datetime(2026, 11, 4, 20, 0, tzinfo=JKT)),
+        (" 4/11  19.30 ", datetime(2026, 11, 4, 19, 30, tzinfo=JKT)),  # dot is ok
+        ("29/10/2026 8:05", datetime(2026, 10, 29, 8, 5, tzinfo=JKT)),
+        ("30/12", datetime(2025, 12, 30, 12, 0, tzinfo=JKT)),  # not yet: last year
+        ("5/11", NOW),  # today, before midday: right now, not 12:00 later
+    ],
+)
+def test_when_valid(text, expected):
+    assert parse_when(text, NOW) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "", "kemarin", "4-11", "4/11 25:00", "4/11 10:60", "31/2", "0/11",
+        "6/11/2026", "5/11 10:00", "1/1/1999", "٤/١١",
+    ],
+)  # fmt: skip
+def test_when_invalid(text):
+    with pytest.raises(ValueError):
+        parse_when(text, NOW)

@@ -41,8 +41,13 @@ def test_dates_come_back_as_jakarta_time():
     assert (created.hour, str(created.utcoffset())) == (10, "7:00:00")
 
 
-def test_default_categories_in_order():
-    assert [c["name"] for c in db.categories()] == db.DEFAULT_CATEGORIES
+def test_categories_in_order_with_lainnya_last():
+    names = [c["name"] for c in db.categories()]
+    assert names == [
+        "Makan", "Transport", "Belanja", "Tagihan", "Hiburan",
+        "Keluarga", "Langganan", "Kesehatan", "Peliharaan", "Date", "Sosial",
+        "Lainnya",
+    ]  # fmt: skip
 
 
 def test_find_category_ignores_case_and_spaces():
@@ -359,3 +364,40 @@ def test_subscriptions():
 
     db.delete_subscription(sub["id"])
     assert db.subscriptions() == []
+
+
+def test_add_returns_id_and_date_can_change():
+    db.add_account("Cash", 0, NOW)
+    cash = account_id("Cash")
+    tid = db.add_transaction(
+        "expense", "pocha", 287595, NOW, category_id=cat("Makan"), from_account_id=cash
+    )
+    assert db.get_transaction(tid)["item"] == "pocha"
+    db.update_transaction(tid, "created_at", "2026-11-04T20:00:00+07:00")
+    assert f"{db.get_transaction(tid)['created_at']:%d/%m %H:%M}" == "04/11 20:00"
+
+
+def test_refund_lowers_spending_not_income():
+    """Pocha 287.595, Diva pays back 250.000: I really spent 37.595."""
+    db.add_account("CIMB", 1_000_000, NOW)
+    cimb = account_id("CIMB")
+    date_cat = cat("Date")
+    db.add_transaction(
+        "expense", "pocha", 287595, NOW, category_id=date_cat, from_account_id=cimb
+    )
+    db.add_transaction(
+        "refund", "Diva bayar", 250000, NOW, category_id=date_cat, to_account_id=cimb
+    )
+    assert db.spending(*CYCLE) == 37595
+    assert db.spent_in_category(date_cat, *CYCLE) == 37595
+    assert [(r["category"], r["amount"]) for r in db.spending_by_category(*CYCLE)] == [
+        ("Date", 37595)
+    ]
+    assert db.sum_by_kind("income", *CYCLE) == 0  # not counted as income
+    assert db.balance_of(cimb) == 1_000_000 - 287595 + 250000  # money did arrive
+
+
+def test_refund_without_category_is_rejected_by_database():
+    db.add_account("CIMB", 0, NOW)
+    with pytest.raises(psycopg.errors.CheckViolation):
+        db.add_transaction("refund", "x", 1000, NOW, to_account_id=account_id("CIMB"))

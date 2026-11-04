@@ -9,13 +9,13 @@ transfers, budgets, and a report per pay cycle (payday to payday).
 | Command | What it does |
 |---|---|
 | `/akun` | Add an account (CIMB, SeaBank, GoPay, Cash…) with its current balance |
-| `/catat` | Spending: category → item → account → amount |
-| `/masuk` | Income: item → account → amount |
+| `/catat` | Spending: category → item → account → amount, then 📅 Ubah tanggal if it happened earlier |
+| `/masuk` | 💰 Income (item → account → amount) or ↩️ Pengembalian: someone pays you back, which lowers that category's spending |
 | `/pindah` | Move money between accounts (top-up, cash withdrawal). Not counted as spending |
 | `/saldo` | Balance of every account + total |
 | `/bulan` | This pay cycle: in, out, per category, budgets, vs last cycle (◀ ▶ to browse) |
 | `/budget` | `/budget Makan 1500000` to set, `/budget Makan 0` to remove, `/budget` to see bars |
-| `/riwayat` | Browse every entry; tap one to edit or delete it |
+| `/riwayat` | Browse every entry; tap one to edit (incl. the date) or delete it |
 | `/ekspor` | Download current balances + every transaction as a CSV file (Excel, Google Sheets) |
 | `/hutang` | Who owes whom: lend, get paid back, borrow, pay back |
 | `/langganan` | Recurring payments (Netflix, kos, cicilan): reminder on the due day, one tap to log |

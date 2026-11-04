@@ -29,6 +29,10 @@ def describe_transaction(t):
     kind, amount = t["kind"], rupiah(t["amount"])
     if kind == "income":
         return f"Masuk: {t['item']} → {t['to_account']} {amount}"
+    if kind == "refund":
+        return (
+            f"Pengembalian: {t['item']} ({t['category']}) → {t['to_account']} {amount}"
+        )
     if kind == "transfer":
         return f"Pindah: {t['from_account']} → {t['to_account']} {amount}"
     if kind == "adjustment":
@@ -55,6 +59,7 @@ _SIGN = {
     "lend": "-",
     "repay": "-",
     "income": "+",
+    "refund": "+",
     "collect": "+",
     "borrow": "+",
     "transfer": "⇄ ",

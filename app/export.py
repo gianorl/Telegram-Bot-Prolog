@@ -12,6 +12,7 @@ import io
 KIND_LABELS = {
     "expense": "Pengeluaran",
     "income": "Pemasukan",
+    "refund": "Pengembalian",
     "transfer": "Pindah",
     "adjustment": "Penyesuaian",
     "lend": "Pinjamkan",

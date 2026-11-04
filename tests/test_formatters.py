@@ -77,7 +77,10 @@ def test_describe_transaction():
             "Bayar hutang ke Budi Rp25.000 (dari CIMB)",
         ),
         (row(kind="lend", person="Andi"), "Pinjamkan ke Andi Rp25.000 (tanpa akun)"),
-        (row(kind="borrow", person="Budi"), "Pinjam dari Budi Rp25.000 (tanpa akun)"),
+        (row(kind="borrow", person="Budi"), "Pinjam dari Budi Rp25.000 (tanpa akun)"),        (
+            row(kind="refund", item="Diva bayar", category="Date", to_account="CIMB"),
+            "Pengembalian: Diva bayar (Date) → CIMB Rp25.000",
+        ),
     ]
     for t, expected in cases:
         assert describe_transaction(t) == expected
@@ -86,6 +89,7 @@ def test_describe_transaction():
 def test_history_label():
     assert history_label(row(kind="expense")) == "28/10 nasi -Rp25.000"
     assert history_label(row(kind="income")) == "28/10 nasi +Rp25.000"
+    assert history_label(row(kind="refund")) == "28/10 nasi +Rp25.000"
     assert history_label(row(kind="transfer")) == "28/10 nasi ⇄ Rp25.000"
     assert history_label(row(kind="adjustment", to_account="CIMB")).endswith(
         "+Rp25.000"

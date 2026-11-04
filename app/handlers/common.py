@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 # One list feeds both /help and the "/" menu in Telegram
 COMMANDS = [
     ("catat", "Catat pengeluaran"),
-    ("masuk", "Catat pemasukan (gaji, dll)"),
+    ("masuk", "Catat pemasukan, atau pengembalian dari teman"),
     ("pindah", "Pindah dana antar akun (top up, tarik tunai)"),
     ("saldo", "Saldo semua akun"),
     ("bulan", "Ringkasan siklus gajian ini"),

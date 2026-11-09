@@ -231,10 +231,13 @@ async def ekspor(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📜 Belum ada akun atau catatan untuk diekspor."
         )
         return
-    filename = f"prolog-{today():%Y-%m-%d}.csv"
+    moment = datetime.now(TZ)
+    # Time in the name: each export is a different file, so a phone never
+    # opens an older download with the same name by mistake
+    filename = f"prolog-{moment:%Y-%m-%d-%H%M}.csv"
     total = sum(b["balance"] for b in balances)
     await update.message.reply_document(
-        InputFile(export_csv(balances, rows, TZ, datetime.now(TZ)), filename=filename),
+        InputFile(export_csv(balances, rows, TZ, moment), filename=filename),
         caption=(
             f"📊 Saldo {len(balances)} akun (total {rupiah(total)}) "
             f"+ {len(rows)} transaksi.\nBuka di Excel atau Google Sheets."

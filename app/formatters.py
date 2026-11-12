@@ -81,3 +81,11 @@ def debt_line(name, owed):
     if owed > 0:
         return f"{name} berutang ke kamu: {rupiah(owed)}"
     return f"Kamu berutang ke {name}: {rupiah(-owed)}"
+
+
+def receipt_summary(found):
+    """What parse_receipt found, one line each. ❓ = not found, you'll type it."""
+    name = found["name"] or "❓"
+    when = f"{found['when']:%d/%m/%Y %H:%M}" if found["when"] else "❓"
+    total = rupiah(found["total"]) if found["total"] else "❓"
+    return f"Nama: {name}\nTanggal: {when}\nTotal: {total}"

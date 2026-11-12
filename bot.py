@@ -13,7 +13,7 @@ from telegram.ext import (
 from app import db
 from app.auth import owner_guard
 from app.config import DATABASE_URL, TELEGRAM_TOKEN, TZ_NAME
-from app.handlers import common, flows, history, reports, subscriptions
+from app.handlers import common, flows, history, receipts, reports, subscriptions
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO
@@ -45,6 +45,7 @@ def build_app():
     reports.register(app)
     history.register(app)
     subscriptions.register(app)  # also schedules the reminder check
+    receipts.register(app)  # a photo = a receipt to read
 
     # Registered last: only runs when nothing above handled the update
     app.add_handler(

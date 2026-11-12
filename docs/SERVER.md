@@ -36,6 +36,7 @@ Users: `ubuntu` (me, sudo), `root` and `lighthouse` (Tencent helper) have locked
 /etc/systemd/system/prolog.service   starts at boot, restarts 10 s after a crash
 PostgreSQL 18 (PGDG repo)  role "prolog", databases prolog + prolog_test, localhost only,
                            no password: Linux user prolog = Postgres role prolog (peer auth)
+Tesseract 5.3.4 (apt)      tesseract-ocr + tesseract-ocr-ind, reads receipt photos (12 Nov 2026)
 ```
 
 | Task | Command (from the Mac) |

@@ -3,6 +3,7 @@
 ## v0.2.0 (R2: Real tracker), unreleased
 
 ### Added
+- Send a photo of a receipt or payment screenshot: the bot reads name, date and total with Tesseract OCR (read only, nothing saved yet)
 - 📅 Ubah tanggal: under every `/catat` and `/masuk` reply and in `/riwayat`; type `4/11` or `4/11 19:30`, never in the future
 - `/masuk` → ↩️ Pengembalian: a friend paying you back lowers that category's spending in `/bulan` and budgets, and is not counted as income (new kind `refund`, migration 4)
 - Categories Keluarga, Langganan, Kesehatan, Peliharaan, Date, Sosial (migration 3); picker shows 3 per row, Lainnya always last

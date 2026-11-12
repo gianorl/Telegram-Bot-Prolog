@@ -6,6 +6,7 @@ from app.formatters import (
     describe_transaction,
     history_label,
     progress_bar,
+    receipt_summary,
     rupiah,
 )
 
@@ -101,3 +102,15 @@ def test_history_label():
 def test_debt_line():
     assert debt_line("Andi", 50000) == "Andi berutang ke kamu: Rp50.000"
     assert debt_line("Budi", -50000) == "Kamu berutang ke Budi: Rp50.000"
+
+
+def test_receipt_summary_found():
+    found = {"name": "Astro", "when": datetime(2026, 11, 9, 22, 11), "total": 229676}
+    assert receipt_summary(found) == (
+        "Nama: Astro\nTanggal: 09/11/2026 22:11\nTotal: Rp229.676"
+    )
+
+
+def test_receipt_summary_missing_parts():
+    found = {"name": None, "when": None, "total": None}
+    assert receipt_summary(found) == "Nama: ❓\nTanggal: ❓\nTotal: ❓"
